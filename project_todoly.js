@@ -57,6 +57,7 @@ function getToken() {
 function createProject(token) {
     const credentials = `${userName}:${password}`;
     const encodedCredentials = base64Encode(credentials);
+
     const projectPayload = JSON.stringify({
         Content: "New Projecttest"
     });
@@ -70,6 +71,7 @@ function createProject(token) {
 
     const projectResponse = http.post(projectUrl, projectPayload, projectParams);
     console.log('Project response:', projectResponse.body);
+    return projectResponse.body;
 }
 
 export default function () {
