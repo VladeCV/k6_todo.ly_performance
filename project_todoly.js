@@ -1,5 +1,5 @@
 import http from 'k6/http';
-import {sleep} from 'k6';
+import {check, sleep} from 'k6';
 
 export const options = {
     vus: 1,
@@ -54,6 +54,8 @@ function getToken() {
     return JSON.parse(response.body).TokenString;
 }
 
+
+
 function createProject(token) {
     const credentials = `${userName}:${password}`;
     const encodedCredentials = base64Encode(credentials);
@@ -71,7 +73,38 @@ function createProject(token) {
 
     const projectResponse = http.post(projectUrl, projectPayload, projectParams);
     console.log('Project response:', projectResponse.body);
-    return projectResponse.body;
+
+    check(projectResponse, {
+        'Project creation was successful' : (r) => r.status === 200,
+        'Project Id is correct': (r) => r.body.includes('Id'),
+    });
+    
+    return JSON.parse(projectResponse.body).Id;
+}
+
+function updateProject(token, projectId) {
+    const credentials = `${userName}:${password}`;
+    const encodedCredentials = base64Encode(credentials);
+    const updateUrl = `https://todo.ly/api/projects/${projectId}.json`;
+    const updatePayload = JSON.stringify({
+        Content: "Modified Projecttest",
+        Icon: 5,
+    });
+
+    const updateParams = {
+        headers: {
+            'Authorization': `Basic ${encodedCredentials}`,
+            'Content-Type': 'application/json',
+        },
+    };
+
+    const updateResponse = http.put(updateUrl, updatePayload, updateParams);
+    console.log('Update response:', updateResponse.body);
+
+    check(updateResponse, {
+        'Project update was successful': (r) => r.status === 200,
+        'Project content was updated': (r) => JSON.parse(r.body).Content === "Modified Projecttest",
+    });
 }
 
 export default function () {
@@ -79,7 +112,10 @@ export default function () {
     console.log('TOKEN', token);
 
     if (token) {
-        createProject(token);
+        const projectId = createProject(token);
+        if (projectId) {
+            updateProject(token, projectId);
+        }
     }
     sleep(1);
 }
