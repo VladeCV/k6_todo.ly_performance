@@ -104,6 +104,28 @@ function updateProject(token, projectId) {
     check(updateResponse, {
         'Project update was successful': (r) => r.status === 200,
         'Project content was updated': (r) => JSON.parse(r.body).Content === "Modified Projecttest",
+        'Project icon was updated': (r) => JSON.parse(r.body).Icon === 5,
+    });
+}
+
+function deleteProject(token, projectId) {
+    const credentials = `${userName}:${password}`;
+    const encodedCredentials = base64Encode(credentials);
+    const deleteUrl = `https://todo.ly/api/projects/${projectId}.json`;
+
+    const deleteParams = {
+        headers: {
+            'Authorization': `Basic ${encodedCredentials}`,
+            'Content-Type': 'application/json',
+        },
+    };
+
+    const deleteResponse = http.del(deleteUrl, null, deleteParams);
+    console.log('Delete response:', deleteResponse.body);
+
+    check(deleteResponse, {
+        'Project deletion was successful': (r) => r.status === 200,
+        'Project Id is correct': (r) => r.body.includes('Id'),
     });
 }
 
@@ -115,6 +137,7 @@ export default function () {
         const projectId = createProject(token);
         if (projectId) {
             updateProject(token, projectId);
+            deleteProject(token, projectId);
         }
     }
     sleep(1);
