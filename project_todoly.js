@@ -1,13 +1,18 @@
 import http from 'k6/http';
-import {check, sleep} from 'k6';
+import { check, sleep } from 'k6';
+import { SharedArray } from 'k6/data';
+import papaparse from 'https://jslib.k6.io/papaparse/5.1.1/index.js';
+
+
+const csvData = new SharedArray('CSV data', function(){
+    return papaparse.parse(open('./data_todoly.csv'), {header: true }).data;
+});
 
 export const options = {
     vus: 1,
-    duration: '1s',
+    duration: '5s',
 };
 
-const userName = "vladimircabrecabri@gmail.com";
-const password = "753159cvcf";
 const authUrl = 'https://todo.ly/api/authentication/token.json';
 const projectUrl = 'https://todo.ly/api/projects.json';
 
@@ -33,40 +38,29 @@ function base64Encode(str) {
     return encoded;
 }
 
-function getToken() {
-    const credentials = `${userName}:${password}`;
-    const encodedCredentials = base64Encode(credentials);
-
-    const params = {
-        headers: {
-            'Authorization': `Basic ${encodedCredentials}`,
-            'Content-Type': 'application/json'
-        }
+function getRandomCredentials() {
+    const randomIndex = Math.floor(Math.random() * csvData.length);
+    const user = csvData[randomIndex];
+    return {
+        username: user.username,
+        password: user.password
     };
-
-    const response = http.get(authUrl, params);
-    console.log('Response:', response);
-    if (response.status !== 200) {
-        console.error('Authentication failed:', response.body);
-        return null;
-    }
-    console.log('Token:', JSON.parse(response.body));
-    return JSON.parse(response.body).TokenString;
 }
 
-
+function getAuth(username, password) {
+    const credentials = `${username}:${password}`;
+    
+    return base64Encode(credentials);
+}
 
 function createProject(token) {
-    const credentials = `${userName}:${password}`;
-    const encodedCredentials = base64Encode(credentials);
-
     const projectPayload = JSON.stringify({
         Content: "New Projecttest"
     });
 
     const projectParams = {
         headers: {
-            'Authorization': `Basic ${encodedCredentials}`,
+            'Authorization': `Basic ${token}`,
             'Content-Type': 'application/json'
         }
     };
@@ -83,8 +77,6 @@ function createProject(token) {
 }
 
 function updateProject(token, projectId) {
-    const credentials = `${userName}:${password}`;
-    const encodedCredentials = base64Encode(credentials);
     const updateUrl = `https://todo.ly/api/projects/${projectId}.json`;
     const updatePayload = JSON.stringify({
         Content: "Modified Projecttest",
@@ -93,7 +85,7 @@ function updateProject(token, projectId) {
 
     const updateParams = {
         headers: {
-            'Authorization': `Basic ${encodedCredentials}`,
+            'Authorization': `Basic ${token}`,
             'Content-Type': 'application/json',
         },
     };
@@ -109,13 +101,11 @@ function updateProject(token, projectId) {
 }
 
 function deleteProject(token, projectId) {
-    const credentials = `${userName}:${password}`;
-    const encodedCredentials = base64Encode(credentials);
     const deleteUrl = `https://todo.ly/api/projects/${projectId}.json`;
 
     const deleteParams = {
         headers: {
-            'Authorization': `Basic ${encodedCredentials}`,
+            'Authorization': `Basic ${token}`,
             'Content-Type': 'application/json',
         },
     };
@@ -130,14 +120,15 @@ function deleteProject(token, projectId) {
 }
 
 export default function () {
-    const token = getToken();
-    console.log('TOKEN', token);
+    const { username, password } = getRandomCredentials();
+    console.log(`Using credentials: ${username} / ${password}`);
+    const auth = getAuth(username, password);
 
-    if (token) {
-        const projectId = createProject(token);
+    if (auth) {
+        const projectId = createProject(auth);
         if (projectId) {
-            updateProject(token, projectId);
-            deleteProject(token, projectId);
+            updateProject(auth, projectId);
+            deleteProject(auth, projectId);
         }
     }
     sleep(1);
